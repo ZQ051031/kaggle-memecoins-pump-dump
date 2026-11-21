@@ -1,0 +1,7 @@
+data/
+submission.csv
+__pycache__/
+*.egg-info/
+.pytest_cache/
+*.executed.ipynb
+*_executed.ipynb
