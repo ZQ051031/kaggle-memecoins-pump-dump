@@ -303,6 +303,17 @@ The default generated labels achieved reach shares **28.1875%, 13.3750%,
 Local output was validated; `/kaggle/working` was not writable on this host, so
 that optional write was caught. Runtime varies by host/load.
 
+## Out-of-sample evaluation — SYNTHETIC ONLY
+
+Not a competition score. The policy fitted on the seed-0 tuning fixture was frozen (LightGBM, margin 0.1, one exclusion rule `curve_curve_age_s <= 262.6`, same TP grid and calibration) and scored once on new synthetic blocks with new seeds and later, disjoint dates. Protocol pre-registered in `eval/PROTOCOL.md` (committed before any results); reproduce with `python scripts/evaluate_oos.py --blocks B1 B2`. Per-day tables: `eval/results_oos.md`, `eval/results_oos.json`.
+
+| Block | Seed | Dates (UTC) | Days x tokens/day | PnL | Buys | Hits | Skip-all | tp=5 buy-all |
+|---|---:|---|---|---:|---:|---:|---:|---:|
+| B1 | 101 | 2026-10-01 – 2026-10-14 | 14 x 80 = 1,120 | +86.89 | 122 | 44 | 0 | -750.59 |
+| B2 | 202 | 2026-10-15 – 2026-10-28 | 14 x 80 = 1,120 | +30.67 | 121 | 38 | 0 | -756.05 |
+
+Both blocks are positive, so the stop line was not hit. No retuning was done: B2 is about a third of B1, so the edge varies a lot between blocks and gives nothing stable to tune toward. B3 (seed 303, 2026-10-29 – 2026-11-11) is still unused. The synthetic generator plants the signal the features look for, so these numbers show the pipeline works without leakage. They do not predict real performance.
+
 ## Limitations
 
 - **Untested on real competition data and on the Kaggle image.** Synthetic

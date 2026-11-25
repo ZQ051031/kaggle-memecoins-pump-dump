@@ -1,0 +1,490 @@
+{
+  "warning": "SYNTHETIC ONLY \u2014 not a competition score",
+  "protocol": "eval/PROTOCOL.md",
+  "registered_blocks": {
+    "B1": {
+      "seed": 101,
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-14",
+      "days": 14,
+      "tokens_per_day": 80
+    },
+    "B2": {
+      "seed": 202,
+      "start_date": "2026-10-15",
+      "end_date": "2026-10-28",
+      "days": 14,
+      "tokens_per_day": 80
+    },
+    "B3": {
+      "seed": 303,
+      "start_date": "2026-10-29",
+      "end_date": "2026-11-11",
+      "days": 14,
+      "tokens_per_day": 80
+    }
+  },
+  "frozen": {
+    "backend": "LightGBM",
+    "margin": 0.1,
+    "rules": [
+      [
+        "curve_curve_age_s",
+        262.6,
+        false
+      ]
+    ],
+    "alpha": 2.5109619192773796,
+    "feature_columns": [
+      "mint",
+      "hour",
+      "curve_n_failed",
+      "curve_failed_frac",
+      "curve_failed_buy_share",
+      "curve_unique_failed_wallets",
+      "curve_n_trades",
+      "curve_volume_sol",
+      "curve_buy_share",
+      "curve_n_wallets",
+      "curve_top1_share",
+      "curve_hhi",
+      "curve_roundtrip_wallet_frac",
+      "curve_price_last",
+      "curve_n_buys",
+      "curve_n_sells",
+      "curve_trades_per_wallet",
+      "curve_top3_share",
+      "curve_largest_buy_sol",
+      "curve_largest_buy_share",
+      "curve_curve_age_s",
+      "curve_last10min_share",
+      "curve_last60s_pre_share",
+      "curve_sell_volume_share",
+      "curve_n_sellers_frac",
+      "amm_n_trades",
+      "amm_volume_sol",
+      "amm_buy_share",
+      "amm_n_wallets",
+      "amm_top1_share",
+      "amm_hhi",
+      "amm_roundtrip_wallet_frac",
+      "amm_price_last",
+      "amm_volume_w1",
+      "amm_buy_share_w1",
+      "amm_volume_w2",
+      "amm_buy_share_w2",
+      "amm_volume_w3",
+      "amm_buy_share_w3",
+      "amm_momentum",
+      "amm_price_first",
+      "amm_price_last_rel",
+      "amm_price_max_rel",
+      "amm_price_min_rel",
+      "amm_drawdown",
+      "amm_depth_first",
+      "amm_depth_last",
+      "amm_depth_growth",
+      "amm_slot_clustering_share",
+      "amm_sponsored_share",
+      "amm_net_buy_sol",
+      "price_jump",
+      "launch_log_age",
+      "bundle_size",
+      "bundled_buys",
+      "bundled_buys_count",
+      "direct_pf_invocation",
+      "log_dev_balance",
+      "bundled_buys_share",
+      "migration_log_sol",
+      "creator_resolved_count",
+      "creator_hit_rate",
+      "creator_mean_log_max",
+      "creator_prior_launches",
+      "wallet_hit_rate",
+      "wallet_prior_appearances",
+      "wallet_with_history_frac",
+      "regime_count",
+      "regime_hit3",
+      "regime_hit5",
+      "regime_median_log_final"
+    ],
+    "held_bin_edges": [
+      0.025097899208850326,
+      0.05415043233549469,
+      0.11046510562680896,
+      0.25036083774639745
+    ],
+    "held_payoffs": [
+      [
+        -0.9881020428903132,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037,
+        -0.988420738170037
+      ],
+      [
+        -0.9910229728868439,
+        -0.9910229728868439,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359,
+        -0.9911832769424359
+      ],
+      [
+        -0.9695409329391204,
+        -0.9651216426853714,
+        -0.9651216426853714,
+        -0.9651216426853714,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481,
+        -0.9649554546952481
+      ],
+      [
+        -0.9845474103569797,
+        -0.9843781978077414,
+        -0.9828947557011009,
+        -0.9838629770765103,
+        -0.9840137903748606,
+        -0.9841618108343526,
+        -0.9795315265076477,
+        -0.9795315265076477,
+        -0.9795315265076477,
+        -0.9758569084336791,
+        -0.9758569084336791,
+        -0.9758569084336791,
+        -0.9758569084336791
+      ],
+      [
+        -0.9676913324907813,
+        -0.9715173589063468,
+        -0.9697242496321367,
+        -0.9716567443364685,
+        -0.9311865352897101,
+        -0.9325628045839158,
+        -0.9332304995880355,
+        -0.9345269947416659,
+        -0.9357740996037294,
+        -0.9369018978785342,
+        -0.9369018978785342,
+        -0.9374703492489977,
+        -0.9374703492489977
+      ]
+    ]
+  },
+  "results": [
+    {
+      "block": "B1",
+      "definition": {
+        "seed": 101,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-14",
+        "days": 14,
+        "tokens_per_day": 80
+      },
+      "totals": {
+        "n_tokens": 1120,
+        "n_buys": 122,
+        "n_hits": 44,
+        "pnl": 86.88929647753442,
+        "skip_all_pnl": 0.0,
+        "tp5_buy_all_pnl": -750.5893895741324
+      },
+      "days": [
+        {
+          "day": "2026-10-01",
+          "n_tokens": 80,
+          "n_buys": 2,
+          "n_hits": 0,
+          "pnl": -2.0,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.80272514597779
+        },
+        {
+          "day": "2026-10-02",
+          "n_tokens": 80,
+          "n_buys": 5,
+          "n_hits": 2,
+          "pnl": 6.4,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -54.966685056426854
+        },
+        {
+          "day": "2026-10-03",
+          "n_tokens": 80,
+          "n_buys": 5,
+          "n_hits": 2,
+          "pnl": 2.4000000000000004,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -43.76677251881682
+        },
+        {
+          "day": "2026-10-04",
+          "n_tokens": 80,
+          "n_buys": 13,
+          "n_hits": 6,
+          "pnl": 9.2,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -50.962471864743804
+        },
+        {
+          "day": "2026-10-05",
+          "n_tokens": 80,
+          "n_buys": 10,
+          "n_hits": 4,
+          "pnl": 4.800000000000001,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -50.923482944980194
+        },
+        {
+          "day": "2026-10-06",
+          "n_tokens": 80,
+          "n_buys": 9,
+          "n_hits": 4,
+          "pnl": 1.7999999999999996,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -58.13356163859933
+        },
+        {
+          "day": "2026-10-07",
+          "n_tokens": 80,
+          "n_buys": 10,
+          "n_hits": 3,
+          "pnl": 7.74092015486613,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -55.647544036037125
+        },
+        {
+          "day": "2026-10-08",
+          "n_tokens": 80,
+          "n_buys": 7,
+          "n_hits": 4,
+          "pnl": 10.799999999999999,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -60.678341948162156
+        },
+        {
+          "day": "2026-10-09",
+          "n_tokens": 80,
+          "n_buys": 14,
+          "n_hits": 4,
+          "pnl": 7.8438278152892025,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -51.2958562403551
+        },
+        {
+          "day": "2026-10-10",
+          "n_tokens": 80,
+          "n_buys": 7,
+          "n_hits": 1,
+          "pnl": -2.3,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -51.250343022261205
+        },
+        {
+          "day": "2026-10-11",
+          "n_tokens": 80,
+          "n_buys": 8,
+          "n_hits": 3,
+          "pnl": 11.105786745905649,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.36798297865796
+        },
+        {
+          "day": "2026-10-12",
+          "n_tokens": 80,
+          "n_buys": 9,
+          "n_hits": 4,
+          "pnl": 20.40716322764094,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -39.94688195475054
+        },
+        {
+          "day": "2026-10-13",
+          "n_tokens": 80,
+          "n_buys": 8,
+          "n_hits": 4,
+          "pnl": 12.8,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -54.262605046606744
+        },
+        {
+          "day": "2026-10-14",
+          "n_tokens": 80,
+          "n_buys": 15,
+          "n_hits": 3,
+          "pnl": -4.108401466167501,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.584135177756735
+        }
+      ]
+    },
+    {
+      "block": "B2",
+      "definition": {
+        "seed": 202,
+        "start_date": "2026-10-15",
+        "end_date": "2026-10-28",
+        "days": 14,
+        "tokens_per_day": 80
+      },
+      "totals": {
+        "n_tokens": 1120,
+        "n_buys": 121,
+        "n_hits": 38,
+        "pnl": 30.668397301160155,
+        "skip_all_pnl": 0.0,
+        "tp5_buy_all_pnl": -756.0543275882253
+      },
+      "days": [
+        {
+          "day": "2026-10-15",
+          "n_tokens": 80,
+          "n_buys": 2,
+          "n_hits": 1,
+          "pnl": 0.7,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -50.21434736336683
+        },
+        {
+          "day": "2026-10-16",
+          "n_tokens": 80,
+          "n_buys": 7,
+          "n_hits": 3,
+          "pnl": 1.0999999999999996,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.48139086246372
+        },
+        {
+          "day": "2026-10-17",
+          "n_tokens": 80,
+          "n_buys": 8,
+          "n_hits": 4,
+          "pnl": 9.009497217782387,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -39.39725328991322
+        },
+        {
+          "day": "2026-10-18",
+          "n_tokens": 80,
+          "n_buys": 10,
+          "n_hits": 5,
+          "pnl": 12.025413310204533,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.725828057791844
+        },
+        {
+          "day": "2026-10-19",
+          "n_tokens": 80,
+          "n_buys": 12,
+          "n_hits": 5,
+          "pnl": 4.127117082831824,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -50.28553385249735
+        },
+        {
+          "day": "2026-10-20",
+          "n_tokens": 80,
+          "n_buys": 6,
+          "n_hits": 1,
+          "pnl": -3.3,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -45.673795296765526
+        },
+        {
+          "day": "2026-10-21",
+          "n_tokens": 80,
+          "n_buys": 8,
+          "n_hits": 1,
+          "pnl": -3.170809974616379,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.83923527979601
+        },
+        {
+          "day": "2026-10-22",
+          "n_tokens": 80,
+          "n_buys": 8,
+          "n_hits": 1,
+          "pnl": 2.0846559720660394,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -61.519066583812744
+        },
+        {
+          "day": "2026-10-23",
+          "n_tokens": 80,
+          "n_buys": 13,
+          "n_hits": 5,
+          "pnl": 4.775569630696905,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -47.65637418238008
+        },
+        {
+          "day": "2026-10-24",
+          "n_tokens": 80,
+          "n_buys": 15,
+          "n_hits": 5,
+          "pnl": -1.5,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -55.47651032692055
+        },
+        {
+          "day": "2026-10-25",
+          "n_tokens": 80,
+          "n_buys": 7,
+          "n_hits": 1,
+          "pnl": -2.845978870402548,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -65.99917921079172
+        },
+        {
+          "day": "2026-10-26",
+          "n_tokens": 80,
+          "n_buys": 9,
+          "n_hits": 0,
+          "pnl": -8.681833459023814,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -59.35109878344668
+        },
+        {
+          "day": "2026-10-27",
+          "n_tokens": 80,
+          "n_buys": 7,
+          "n_hits": 3,
+          "pnl": 10.244766391621205,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -51.321934565615095
+        },
+        {
+          "day": "2026-10-28",
+          "n_tokens": 80,
+          "n_buys": 9,
+          "n_hits": 3,
+          "pnl": 6.1,
+          "skip_all_pnl": 0.0,
+          "tp5_buy_all_pnl": -50.11277993266384
+        }
+      ]
+    }
+  ],
+  "stop_reason": "Requested blocks complete; STOP and report. No retune performed."
+}
