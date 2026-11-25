@@ -1,5 +1,6 @@
 """Temporal level models and an offline, graceful-fallback pipeline."""
 from pathlib import Path
+from dataclasses import dataclass
 import time
 
 import numpy as np
@@ -122,17 +123,122 @@ def _write_submission(submission, out_paths):
             print(f'Could not write {path}: {error}')
 
 
-def run_pipeline(data_dir=None, out_paths=None, wf_days=7, archive_days=30, use_lightgbm=True):
+@dataclass
+class FittedArtifacts:
+    """In-memory frozen fit and original history context; never serialized."""
+
+    model: LevelModels
+    calibration: PlattCalibrator
+    policy: DecisionPolicy
+    feature_columns: list
+    training_labels: pd.DataFrame
+    universe: pd.DataFrame
+    creation: pd.DataFrame
+    early_buyers: pd.DataFrame
+    base_features: pd.DataFrame
+    walk_forward: pd.DataFrame
+
+    def predict_features(self, features, individually=False):
+        ordered = features.reindex(columns=self.feature_columns)
+        probabilities = self.calibration.predict(self.model.predict(ordered))
+        if individually:
+            return np.array([self.policy.decide_row(row, probability)
+                             for row, probability in zip(ordered.to_dict('records'), probabilities)])
+        return self.policy.predict(ordered, probabilities)
+
+
+def load_training_labels(data_dir, archive_days=30):
+    """Read the same eligible train/archive labels used by the original pipeline."""
+    root = Path(data_dir)
+    train = _read(root, 'train.csv', ['mint', 'mt', 'max_x', 'final_x'])
+    archive = _read(root, 'train_archive.csv', ['mint', 'mt', 'max_x', 'final_x'])
+    if archive_days > 0 and not archive.empty and not train.empty:
+        dates = pd.to_datetime(archive.mt, unit='s', utc=True).dt.strftime('%Y-%m-%d')
+        tape_days = {day for day, parts in discover_tapes(root).items() if parts['curve'] or parts['amm']}
+        archive = archive[(archive.mt >= train.mt.min()-archive_days*86400) & dates.isin(tape_days)]
+        train = pd.concat([archive, train], ignore_index=True)
+    train = train.drop_duplicates('mint').dropna(subset=['mt', 'max_x', 'final_x']).sort_values('mt').reset_index(drop=True)
+    return train
+
+
+def fit_pipeline(data_dir, wf_days=7, archive_days=30, use_lightgbm=True,
+                 training_labels=None, test_tokens=None):
+    """Fit once, returning artifacts; errors propagate for evaluation callers."""
+    root = Path(data_dir)
+    train = load_training_labels(root, archive_days) if training_labels is None else training_labels
+    test = _read(root, 'test.csv', ['mint', 'mt']) if test_tokens is None else test_tokens
+    if len(train) < 200 or test.empty or test.mt.isna().any():
+        raise ValueError('Insufficient labels or missing test times for a frozen fit')
+    universe = pd.concat([train[['mint', 'mt']], test[['mint', 'mt']]], ignore_index=True).drop_duplicates('mint')
+    creation = _read(root, 'pumpfun_token_creation.csv', ['mint', 'creator'])
+    start = time.perf_counter()
+    base, early = build_features(universe, root)
+    base = base.set_index('mint')
+
+    def features_for(rows, visible):
+        history = history_features(rows, visible, universe, early, creation).set_index('mint')
+        return base.reindex(rows.mint).reset_index().merge(history.reset_index(), on='mint', how='left')
+
+    training_features = features_for(train, train)
+    print(f'Features: {len(universe)} tokens, {len(training_features.columns)-1} columns, {time.perf_counter()-start:.3f}s')
+    days = np.sort((train.mt.to_numpy()//86400).astype(int))
+    fold_days = np.unique(days)[-max(0, int(wf_days)):] if wf_days > 0 else []
+    predictions, indices, day_names, oof_parts = [], [], [], []
+    for day in fold_days:
+        fit_mask = train.mt < day*86400-7200
+        val_mask = (train.mt >= day*86400) & (train.mt < (day+1)*86400)
+        if fit_mask.sum() < 200 or not val_mask.any():
+            continue
+        fit_labels = train[fit_mask]
+        model = LevelModels(use_lightgbm).fit(training_features.loc[fit_mask], fit_labels)
+        valid = train[val_mask]
+        valid_features = features_for(valid, fit_labels)
+        predictions.append(model.predict(valid_features))
+        oof_parts.append(valid_features)
+        indices.extend(valid.index.tolist())
+        day_names.extend([pd.to_datetime(day*86400, unit='s', utc=True).strftime('%Y-%m-%d')]*len(valid))
+    if not predictions:
+        raise ValueError('No eligible temporal OOF folds; cannot tune safely')
+    oof_labels = train.loc[indices].reset_index(drop=True)
+    oof_features = pd.concat(oof_parts, ignore_index=True)
+    raw = np.concatenate(predictions)
+    calibration = PlattCalibrator().fit(raw, oof_labels)
+    calibrated = calibration.predict(raw)
+    final_model = LevelModels(use_lightgbm).fit(training_features, train)
+    policy = DecisionPolicy(final_model.alpha).fit(oof_features, calibrated, oof_labels)
+    default_policy = DecisionPolicy(final_model.alpha)
+    default_policy.held = policy.held
+    default_takes = default_policy.predict(oof_features, calibrated)
+    takes = policy.predict(oof_features, calibrated)
+    gains = pnl(takes, oof_labels.max_x.to_numpy(), oof_labels.final_x.to_numpy())
+    held5 = policy.held.predict(calibrated)[:, 2]
+    p5 = reach_probability(calibrated, 5., final_model.alpha)
+    baseline = np.where(p5 > -held5/(3.7-held5), 5., 0.)
+    report = pd.DataFrame({'day': day_names, 'n_tokens': 1, 'n_buys': takes>0,
+        'n_hits': (takes>0) & (oof_labels.max_x.to_numpy() >= takes), 'pnl': gains,
+        'baseline_pnl': pnl(baseline, oof_labels.max_x.to_numpy(), oof_labels.final_x.to_numpy()),
+        'default_pnl': pnl(default_takes, oof_labels.max_x.to_numpy(), oof_labels.final_x.to_numpy())})
+    table = report.groupby('day', sort=True).sum().reset_index()
+    table['cum_pnl'] = table.pnl.cumsum()
+    table['tuning'] = 'in-sample-tuned on training OOF'
+    return FittedArtifacts(final_model, calibration, policy, training_features.columns.tolist(),
+                           train, universe, creation, early, base, table)
+
+
+def run_pipeline(data_dir=None, out_paths=None, wf_days=7, archive_days=30, use_lightgbm=True,
+                 return_artifacts=False):
     """Return (submission, walk-forward table), with zero-take safety fallback.
 
     Fold histories see only that fold's eligible labels. Calibration and policy
     tune on pooled temporal OOF, so reported policy PnL is in-sample-tuned.
     No synthetic answer file is ever read here.
+    With return_artifacts=True, append the in-memory fit (or None on no fit).
     """
     if out_paths is None:
         out_paths = ['submission.csv', '/kaggle/working/submission.csv']
     table = pd.DataFrame(columns=['day', 'n_tokens', 'n_buys', 'n_hits', 'pnl', 'cum_pnl', 'default_pnl', 'baseline_pnl'])
     submission = pd.DataFrame({'mint': pd.Series(dtype=str), 'tp': pd.Series(dtype=float)})
+    artifacts = None
     try:
         try:
             root = Path(data_dir) if data_dir is not None else discover_data_dir()
@@ -142,76 +248,21 @@ def run_pipeline(data_dir=None, out_paths=None, wf_days=7, archive_days=30, use_
         if not (root/'test.csv').exists():
             test = _read(root, 'sample_submission.csv', ['mint']).reindex(columns=['mint', 'mt'])
         submission = test[['mint']].assign(tp=0.)
-        train = _read(root, 'train.csv', ['mint', 'mt', 'max_x', 'final_x'])
-        archive = _read(root, 'train_archive.csv', ['mint', 'mt', 'max_x', 'final_x'])
-        if archive_days > 0 and not archive.empty and not train.empty:
-            dates = pd.to_datetime(archive.mt, unit='s', utc=True).dt.strftime('%Y-%m-%d')
-            tape_days = {day for day, parts in discover_tapes(root).items() if parts['curve'] or parts['amm']}
-            archive = archive[(archive.mt >= train.mt.min()-archive_days*86400) & dates.isin(tape_days)]
-            train = pd.concat([archive, train], ignore_index=True)
-        train = train.drop_duplicates('mint').dropna(subset=['mt', 'max_x', 'final_x']).sort_values('mt').reset_index(drop=True)
+        train = load_training_labels(root, archive_days)
         if len(train) < 200 or test.empty or test.mt.isna().any():
             print(f'Zero-take fallback: {len(train)} labeled rows or missing test times')
         else:
-            universe = pd.concat([train[['mint', 'mt']], test[['mint', 'mt']]], ignore_index=True).drop_duplicates('mint')
-            creation = _read(root, 'pumpfun_token_creation.csv', ['mint', 'creator'])
-            start = time.perf_counter()
-            base, early = build_features(universe, root)
-            base = base.set_index('mint')
-
-            def features_for(rows, visible):
-                history = history_features(rows, visible, universe, early, creation).set_index('mint')
-                return base.reindex(rows.mint).reset_index().merge(history.reset_index(), on='mint', how='left')
-
-            training_features = features_for(train, train)
-            print(f'Features: {len(universe)} tokens, {len(training_features.columns)-1} columns, {time.perf_counter()-start:.3f}s')
-            days = np.sort((train.mt.to_numpy()//86400).astype(int))
-            fold_days = np.unique(days)[-max(0, int(wf_days)):] if wf_days > 0 else []
-            predictions, indices, day_names, oof_parts = [], [], [], []
-            for day in fold_days:
-                fit_mask = train.mt < day*86400-7200
-                val_mask = (train.mt >= day*86400) & (train.mt < (day+1)*86400)
-                if fit_mask.sum() < 200 or not val_mask.any():
-                    continue
-                fit_labels = train[fit_mask]
-                model = LevelModels(use_lightgbm).fit(training_features.loc[fit_mask], fit_labels)
-                valid = train[val_mask]
-                valid_features = features_for(valid, fit_labels)
-                predictions.append(model.predict(valid_features))
-                oof_parts.append(valid_features)
-                indices.extend(valid.index.tolist())
-                day_names.extend([pd.to_datetime(day*86400, unit='s', utc=True).strftime('%Y-%m-%d')]*len(valid))
-            if not predictions:
-                raise ValueError('No eligible temporal OOF folds; cannot tune safely')
-            oof_labels = train.loc[indices].reset_index(drop=True)
-            oof_features = pd.concat(oof_parts, ignore_index=True)
-            raw = np.concatenate(predictions)
-            calibration = PlattCalibrator().fit(raw, oof_labels)
-            calibrated = calibration.predict(raw)
-            final_model = LevelModels(use_lightgbm).fit(training_features, train)
-            policy = DecisionPolicy(final_model.alpha).fit(oof_features, calibrated, oof_labels)
-            default_policy = DecisionPolicy(final_model.alpha)
-            default_policy.held = policy.held
-            default_takes = default_policy.predict(oof_features, calibrated)
-            takes = policy.predict(oof_features, calibrated)
-            gains = pnl(takes, oof_labels.max_x.to_numpy(), oof_labels.final_x.to_numpy())
-            held5 = policy.held.predict(calibrated)[:, 2]
-            p5 = reach_probability(calibrated, 5., final_model.alpha)
-            baseline = np.where(p5 > -held5/(3.7-held5), 5., 0.)
-            report = pd.DataFrame({'day': day_names, 'n_tokens': 1, 'n_buys': takes>0,
-                'n_hits': (takes>0) & (oof_labels.max_x.to_numpy() >= takes), 'pnl': gains,
-                'baseline_pnl': pnl(baseline, oof_labels.max_x.to_numpy(), oof_labels.final_x.to_numpy()),
-                'default_pnl': pnl(default_takes, oof_labels.max_x.to_numpy(), oof_labels.final_x.to_numpy())})
-            table = report.groupby('day', sort=True).sum().reset_index()
-            table['cum_pnl'] = table.pnl.cumsum()
-            table['tuning'] = 'in-sample-tuned on training OOF'
-            test_features = features_for(test, train)
-            probabilities = calibration.predict(final_model.predict(test_features))
-            submission['tp'] = policy.predict(test_features, probabilities)
+            artifacts = fit_pipeline(root, wf_days, archive_days, use_lightgbm, train, test)
+            table = artifacts.walk_forward
+            history = history_features(test, train, artifacts.universe, artifacts.early_buyers,
+                                       artifacts.creation).set_index('mint')
+            test_features = artifacts.base_features.reindex(test.mint).reset_index().merge(
+                history.reset_index(), on='mint', how='left')
+            submission['tp'] = artifacts.predict_features(test_features)
             validate_submission(submission, test)
-            print(f'Backend: {final_model.backend}; margin={policy.margin:g}; exclusions={policy.rules}')
+            print(f'Backend: {artifacts.model.backend}; margin={artifacts.policy.margin:g}; exclusions={artifacts.policy.rules}')
     except Exception as error:
         print(f'Zero-take fallback: {type(error).__name__}: {error}')
         submission['tp'] = 0.
     _write_submission(submission, out_paths)
-    return submission, table
+    return (submission, table, artifacts) if return_artifacts else (submission, table)

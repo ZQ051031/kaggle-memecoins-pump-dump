@@ -10,6 +10,7 @@ Bundled amounts are raw token base units (supply proxy 1e15).
 """
 
 from pathlib import Path
+import re
 from statistics import NormalDist
 
 import numpy as np
@@ -18,21 +19,44 @@ import pandas as pd
 WSOL = 'So11111111111111111111111111111111111111112'
 
 
-def generate_synthetic(out, days=40, tokens_per_day=80, seed=0):
+def _namespace_frame(frame, prefix):
+    if prefix:
+        for col in ['mint', 'creator', 'wallet', 'signing_wallet', 'fee_payer',
+                    'pool', 'base_token', 'quote_token', 'bonding_curve',
+                    'curve_address', 'user', 'signature']:
+            if col in frame:
+                frame[col] = frame[col].where(frame[col].eq(WSOL), prefix + frame[col])
+    return frame
+
+
+def generate_synthetic(out, days=40, tokens_per_day=80, seed=0,
+                       start_date='2026-08-21', id_namespace=None, block=False):
     """Write daily tapes and CSVs; return all labels (including hidden test).
 
     Answers are written to the sibling ``<out.name>_answers`` directory only.
-    ``days`` includes one test day and must be at least three.
+    ``days`` includes one test day and must be at least three unless block=True.
+    Blocks put every mint/mt in test.csv and every label only in answers.
+    Nonzero seeds always namespace identities; an optional namespace additionally
+    separates independent blocks with the same seed. Naming never changes RNG.
     """
-    if days < 3 or tokens_per_day < 1:
-        raise ValueError('days >= 3 and tokens_per_day >= 1 required')
+    if days < (1 if block else 3) or tokens_per_day < 1:
+        raise ValueError('days >= 3 (or >= 1 for blocks) and tokens_per_day >= 1 required')
+    if id_namespace is not None and not re.fullmatch(r'[A-Za-z][A-Za-z0-9-]*', id_namespace):
+        raise ValueError('id_namespace must be an alphanumeric/hyphen name starting with a letter')
+    prefix = f'ns-{id_namespace or "default"}-seed-{seed}__' if id_namespace is not None or seed != 0 else ''
     out = Path(out)
+    if block and any((out/name).exists() for name in ['train.csv', 'train_archive.csv']):
+        raise ValueError('Block output must not contain existing training labels')
     out.mkdir(parents=True, exist_ok=True)
     answers = out.parent / (out.name + '_answers')
     answers.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
     labels, creations, migrations = [], [], []
-    start = int(pd.Timestamp('2026-08-21', tz='UTC').timestamp())
+    stamp = pd.Timestamp(start_date)
+    stamp = stamp.tz_localize('UTC') if stamp.tzinfo is None else stamp.tz_convert('UTC')
+    if stamp != stamp.normalize():
+        raise ValueError('start_date must be midnight UTC')
+    start = int(stamp.timestamp())
     normal = NormalDist()
     for day in range(days):
         curve, amm = [], []
@@ -95,16 +119,17 @@ def generate_synthetic(out, days=40, tokens_per_day=80, seed=0):
                 base_before, quote_before = base_after, quote_after
         date = pd.to_datetime(start+day*86400, unit='s', utc=True).strftime('%Y-%m-%d')
         for name, rows in [('pumpfun', curve), ('pumpswap', amm)]:
-            pd.DataFrame(rows).sort_values(['slot', 'tx_idx'], kind='stable').to_parquet(out/f'day_{date}_{name}_all_swaps.parquet', index=False)
-    labels = pd.DataFrame(labels)
+            _namespace_frame(pd.DataFrame(rows), prefix).sort_values(['slot', 'tx_idx'], kind='stable').to_parquet(out/f'day_{date}_{name}_all_swaps.parquet', index=False)
+    labels = _namespace_frame(pd.DataFrame(labels), prefix)
     test_start = start + (days-1)*86400
     archive_end = start + max(1, days//4)*86400
-    labels[labels.mt < archive_end].to_csv(out/'train_archive.csv', index=False)
-    labels[(labels.mt >= archive_end) & (labels.mt < test_start-7200)].to_csv(out/'train.csv', index=False)
-    test = labels[labels.mt >= test_start]
+    if not block:
+        labels[labels.mt < archive_end].to_csv(out/'train_archive.csv', index=False)
+        labels[(labels.mt >= archive_end) & (labels.mt < test_start-7200)].to_csv(out/'train.csv', index=False)
+    test = labels if block else labels[labels.mt >= test_start]
     test[['mint', 'mt']].to_csv(out/'test.csv', index=False)
     test.to_csv(answers/'test_labels.csv', index=False)
     test[['mint']].assign(tp=0.).to_csv(out/'sample_submission.csv', index=False)
-    pd.DataFrame(creations).to_csv(out/'pumpfun_token_creation.csv', index=False)
-    pd.DataFrame(migrations).to_csv(out/'pfamm_migrations.csv', index=False)
+    _namespace_frame(pd.DataFrame(creations), prefix).to_csv(out/'pumpfun_token_creation.csv', index=False)
+    _namespace_frame(pd.DataFrame(migrations), prefix).to_csv(out/'pfamm_migrations.csv', index=False)
     return labels
