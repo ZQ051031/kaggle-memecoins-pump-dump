@@ -311,8 +311,9 @@ Not a competition score. The policy fitted on the seed-0 tuning fixture was froz
 |---|---:|---|---|---:|---:|---:|---:|---:|
 | B1 | 101 | 2026-10-01 – 2026-10-14 | 14 x 80 = 1,120 | +86.89 | 122 | 44 | 0 | -750.59 |
 | B2 | 202 | 2026-10-15 – 2026-10-28 | 14 x 80 = 1,120 | +30.67 | 121 | 38 | 0 | -756.05 |
+| B3 | 303 | 2026-10-29 – 2026-11-11 | 14 x 80 = 1,120 | +87.91 | 113 | 50 | 0 | -813.62 |
 
-Both blocks are positive, so the stop line was not hit. No retuning was done: B2 is about a third of B1, so the edge varies a lot between blocks and gives nothing stable to tune toward. B3 (seed 303, 2026-10-29 – 2026-11-11) is still unused. The synthetic generator plants the signal the features look for, so these numbers show the pipeline works without leakage. They do not predict real performance.
+Both blocks are positive, so the stop line was not hit. No retuning was done: B2 is about a third of B1, so the edge varies a lot between blocks and gives nothing stable to tune toward. B3 was later scored once with the same unchanged policy as a measurement only (`python scripts/evaluate_oos.py --blocks B3 --allow-b3`; per-day table in `eval/results_oos_b3.md`). No tuning followed. The synthetic generator plants the signal the features look for, so these numbers show the pipeline works without leakage. They do not predict real performance.
 
 ## Limitations
 

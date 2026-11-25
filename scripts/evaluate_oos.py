@@ -128,13 +128,15 @@ def validate_block_request(blocks, allow_b3=False):
     if 'B3' in blocks:
         if not allow_b3:
             raise ValueError('B3 is reserved and requires --allow-b3')
-        raise ValueError('B3 remains sealed: positive B1/B2 and an authorized completed retune/new protocol are required; this evaluator only fits the original frozen policy')
+        if blocks != ['B3']:
+            raise ValueError('B3 is evaluated alone, as a frozen-policy measurement only: --blocks B3 --allow-b3')
+        return
     if blocks not in [['B1'], ['B1', 'B2']]:
         raise ValueError('Evaluate B1 first; the only supported requests are B1 or B1 B2')
 
 
 def evaluate_requested(artifacts, blocks, data_root):
-    validate_block_request(blocks)
+    validate_block_request(blocks, allow_b3=blocks == ['B3'])
     evaluated = []
     reason = 'Requested blocks complete; STOP and report. No retune performed.'
     for name in blocks:
@@ -147,12 +149,12 @@ def evaluate_requested(artifacts, blocks, data_root):
     return evaluated, reason
 
 
-def write_results(results, frozen, reason, out_dir):
+def write_results(results, frozen, reason, out_dir, suffix=''):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {'warning': 'SYNTHETIC ONLY — not a competition score', 'protocol': 'eval/PROTOCOL.md',
                'registered_blocks': BLOCKS, 'frozen': frozen, 'results': results, 'stop_reason': reason}
-    (out_dir/'results_oos.json').write_text(json.dumps(payload, indent=2, allow_nan=False)+'\n')
+    (out_dir/f'results_oos{suffix}.json').write_text(json.dumps(payload, indent=2, allow_nan=False)+'\n')
     text = ['# SYNTHETIC ONLY — frozen-policy OOS results', '',
             'Not a competition score or evidence of live-trading returns.', '',
             'Protocol: `eval/PROTOCOL.md`. No refitting/retuning on block outcomes.', '',
@@ -166,14 +168,16 @@ def write_results(results, frozen, reason, out_dir):
         for day in result['days']:
             text.append('| '+' | '.join(f'{day[c]:.6f}' if isinstance(day[c], float) else str(day[c]) for c in columns)+' |')
         text += ['', 'Totals: `'+json.dumps(result['totals'], sort_keys=True)+'`']
-    text += ['', reason, '', 'B3 remains reserved; no authorized retune has been performed.']
-    (out_dir/'results_oos.md').write_text('\n'.join(text)+'\n')
+    note = ('B3: frozen-policy measurement only; no retune or refit on any block outcome.' if suffix
+            else 'B3 remains reserved; no authorized retune has been performed.')
+    text += ['', reason, '', note]
+    (out_dir/f'results_oos{suffix}.md').write_text('\n'.join(text)+'\n')
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--blocks', nargs='+', choices=list(BLOCKS), default=['B1', 'B2'])
-    parser.add_argument('--allow-b3', action='store_true', help='Required but not sufficient; B3 also needs a separately authorized retune')
+    parser.add_argument('--allow-b3', action='store_true', help='Required for B3, which runs alone as a frozen-policy measurement (no retune)')
     args = parser.parse_args(argv)
     try:
         validate_block_request(args.blocks, args.allow_b3)
@@ -184,7 +188,7 @@ def main(argv=None):
     frozen = frozen_parameters(artifacts)
     print('Frozen parameters:', json.dumps(frozen, sort_keys=True))
     results, reason = evaluate_requested(artifacts, args.blocks, ROOT/'data/oos')
-    write_results(results, frozen, reason, ROOT/'eval')
+    write_results(results, frozen, reason, ROOT/'eval', '_b3' if args.blocks == ['B3'] else '')
     print(reason)
     return 0
 

@@ -94,3 +94,7 @@ and a new protocol identifying the retuned in-memory fit before any access.
 The current frozen-policy evaluator must refuse B3 even with the flag until
 that separately authorized retune/artifact is implemented. No retune is part of
 this task. Do not run any registered-block evaluation during implementation.
+
+## Amendment (after B1/B2 were reported): B3 frozen-policy measurement
+
+B1 and B2 were both positive and no retune was performed. With user authorization, B3 (seed 303, 2026-10-29 to 2026-11-11) is scored once with the same unchanged frozen policy, as a measurement only: `python scripts/evaluate_oos.py --blocks B3 --allow-b3`. Results go to `eval/results_oos_b3.{md,json}`. No tuning or refit follows, whatever the result.
